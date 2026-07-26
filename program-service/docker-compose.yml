@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: program-postgres
+
+    environment:
+      POSTGRES_USER: programuser
+      POSTGRES_PASSWORD: programpassword
+      POSTGRES_DB: programdb
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - program_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U programuser -d programdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  program-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: program-api
+
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DATABASE_URL: postgresql://programuser:programpassword@postgres:5432/programdb?schema=public
+
+    ports:
+      - "3002:3002"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    command:
+      [
+        "sh",
+        "-c",
+        "npx prisma migrate deploy && npm start"
+      ]
+
+volumes:
+  program_postgres_data:

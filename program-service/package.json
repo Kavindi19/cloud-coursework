@@ -1,0 +1,51 @@
+{
+  "name": "program-service",
+  "version": "1.0.0",
+  "description": "Program Service microservice for managing event agenda and programme sessions",
+  "main": "src/server.js",
+  "type": "module",
+
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+
+  "keywords": [
+    "node",
+    "express",
+    "prisma",
+    "postgresql",
+    "microservice",
+    "program-service"
+  ],
+
+  "author": "Kavindi",
+  "license": "ISC",
+
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.9.0",
+    "@prisma/client": "^7.9.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-validator": "^7.3.2",
+    "morgan": "^1.10.0",
+    "pg": "^8.16.3",
+    "swagger-ui-express": "^5.0.1"
+  },
+
+  "devDependencies": {
+    "nodemon": "^3.1.10",
+    "prisma": "^7.9.0"
+  }
+}
