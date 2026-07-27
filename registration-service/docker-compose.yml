@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: registration-postgres
+
+    environment:
+      POSTGRES_USER: registrationuser
+      POSTGRES_PASSWORD: registrationpassword
+      POSTGRES_DB: registrationdb
+
+    ports:
+      - "5434:5432"
+
+    volumes:
+      - registration_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U registrationuser -d registrationdb"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  registration-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: registration-api
+
+    environment:
+      PORT: 3003
+      NODE_ENV: production
+      DATABASE_URL: postgresql://registrationuser:registrationpassword@postgres:5432/registrationdb?schema=public
+
+    ports:
+      - "3003:3003"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+volumes:
+  registration_postgres_data:
