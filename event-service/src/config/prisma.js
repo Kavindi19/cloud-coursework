@@ -10,13 +10,16 @@ if (!connectionString) {
 }
 
 const pool = new Pool({
-  connectionString
+  connectionString,
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
 
 const adapter = new PrismaPg(pool);
 
 const prisma = new PrismaClient({
-  adapter
+  adapter,
 });
 
 export default prisma;
