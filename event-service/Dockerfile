@@ -10,7 +10,7 @@ COPY prisma ./prisma
 COPY prisma.config.ts ./
 COPY src ./src
 
-ARG DATABASE_URL="postgresql://eventuser:eventpassword@postgres:5432/eventdb?schema=public"
+ARG DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 ENV DATABASE_URL=${DATABASE_URL}
 
 RUN npx prisma generate
