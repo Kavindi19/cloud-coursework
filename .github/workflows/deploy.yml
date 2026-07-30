@@ -116,47 +116,157 @@ jobs:
           kubectl get nodes
           kubectl get deployments -n coursework
 
+      # -------------------------------------------------------
+      # NORMAL DEPLOYMENT: FRONTEND
+      # -------------------------------------------------------
+
       - name: Update Frontend
         run: |
           kubectl set image deployment/event-frontend \
-          event-frontend=kavindinable/event-frontend:${{ env.IMAGE_TAG }} \
-          -n coursework
+            event-frontend=kavindinable/event-frontend:${{ env.IMAGE_TAG }} \
+            -n coursework
 
-      - name: Update Event Service
+      # -------------------------------------------------------
+      # BLUE-GREEN DEPLOYMENT: EVENT SERVICE
+      # -------------------------------------------------------
+
+      - name: Detect active Event Service environment
+        id: event-env
+        shell: bash
         run: |
-          kubectl set image deployment/event-service \
-          event-service=kavindinable/event-service:${{ env.IMAGE_TAG }} \
-          -n coursework
+          ACTIVE=$(kubectl get service event-service \
+            -n coursework \
+            -o jsonpath='{.spec.selector.version}')
+
+          echo "Current active Event Service environment: $ACTIVE"
+
+          if [ "$ACTIVE" = "blue" ]; then
+            echo "active=blue" >> "$GITHUB_OUTPUT"
+            echo "inactive=green" >> "$GITHUB_OUTPUT"
+          elif [ "$ACTIVE" = "green" ]; then
+            echo "active=green" >> "$GITHUB_OUTPUT"
+            echo "inactive=blue" >> "$GITHUB_OUTPUT"
+          else
+            echo "Unexpected Event Service selector value: $ACTIVE"
+            exit 1
+          fi
+
+      - name: Deploy Event Service to inactive environment
+        shell: bash
+        run: |
+          INACTIVE=${{ steps.event-env.outputs.inactive }}
+
+          echo "Deploying new Event Service image to $INACTIVE"
+
+          kubectl set image deployment/event-service-$INACTIVE \
+            event-service=kavindinable/event-service:${{ env.IMAGE_TAG }} \
+            -n coursework
+
+      - name: Wait for inactive Event Service deployment
+        shell: bash
+        run: |
+          INACTIVE=${{ steps.event-env.outputs.inactive }}
+
+          kubectl rollout status deployment/event-service-$INACTIVE \
+            -n coursework \
+            --timeout=180s
+
+      - name: Verify inactive Event Service pods
+        shell: bash
+        run: |
+          INACTIVE=${{ steps.event-env.outputs.inactive }}
+
+          kubectl get pods \
+            -n coursework \
+            -l app=event-service,version=$INACTIVE \
+            --show-labels
+
+      - name: Switch Event Service production traffic
+        shell: bash
+        run: |
+          INACTIVE=${{ steps.event-env.outputs.inactive }}
+
+          kubectl patch service event-service \
+            -n coursework \
+            -p "{\"spec\":{\"selector\":{\"app\":\"event-service\",\"version\":\"$INACTIVE\"}}}"
+
+          echo "Event Service production traffic switched to $INACTIVE"
+
+      - name: Verify Event Service traffic switch
+        shell: bash
+        run: |
+          NEW_ACTIVE=$(kubectl get service event-service \
+            -n coursework \
+            -o jsonpath='{.spec.selector.version}')
+
+          echo "Event Service is now active on: $NEW_ACTIVE"
+
+          EXPECTED=${{ steps.event-env.outputs.inactive }}
+
+          if [ "$NEW_ACTIVE" != "$EXPECTED" ]; then
+            echo "Traffic switch verification failed."
+            exit 1
+          fi
+
+      # -------------------------------------------------------
+      # NORMAL DEPLOYMENT: REMAINING SERVICES
+      # -------------------------------------------------------
 
       - name: Update Program Service
         run: |
           kubectl set image deployment/program-service \
-          program-service=kavindinable/program-service:${{ env.IMAGE_TAG }} \
-          -n coursework
+            program-service=kavindinable/program-service:${{ env.IMAGE_TAG }} \
+            -n coursework
 
       - name: Update Registration Service
         run: |
           kubectl set image deployment/registration-service \
-          registration-service=kavindinable/registration-service:${{ env.IMAGE_TAG }} \
-          -n coursework
+            registration-service=kavindinable/registration-service:${{ env.IMAGE_TAG }} \
+            -n coursework
 
       - name: Update Analytics Service
         run: |
           kubectl set image deployment/analytics-service \
-          analytics-service=kavindinable/analytics-service:${{ env.IMAGE_TAG }} \
-          -n coursework
+            analytics-service=kavindinable/analytics-service:${{ env.IMAGE_TAG }} \
+            -n coursework
 
-      - name: Wait for Rollout
+      - name: Wait for remaining rollouts
         run: |
-          kubectl rollout status deployment/event-frontend -n coursework
-          kubectl rollout status deployment/event-service -n coursework
-          kubectl rollout status deployment/program-service -n coursework
-          kubectl rollout status deployment/registration-service -n coursework
-          kubectl rollout status deployment/analytics-service -n coursework
+          kubectl rollout status deployment/event-frontend \
+            -n coursework \
+            --timeout=180s
+
+          kubectl rollout status deployment/program-service \
+            -n coursework \
+            --timeout=180s
+
+          kubectl rollout status deployment/registration-service \
+            -n coursework \
+            --timeout=180s
+
+          kubectl rollout status deployment/analytics-service \
+            -n coursework \
+            --timeout=180s
 
       - name: Verify Deployment
         run: |
+          echo "Current Event Service environment:"
+          kubectl get service event-service \
+            -n coursework \
+            -o jsonpath='{.spec.selector.version}'
+
+          echo ""
+          echo "Pods:"
           kubectl get pods -n coursework
+
+          echo ""
+          echo "Deployments:"
           kubectl get deployments -n coursework
+
+          echo ""
+          echo "Services:"
           kubectl get services -n coursework
+
+          echo ""
+          echo "Ingress:"
           kubectl get ingress -n coursework
