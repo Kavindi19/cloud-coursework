@@ -38,7 +38,9 @@ app.get("/health", async (req, res, next) => {
     res.status(200).json({
       success: true,
       service: "event-service",
-      database: "connected"
+      database: "connected",
+      version: "Blue-Green Deployment Test v2",
+      deployedAt: new Date().toISOString()
     });
   } catch (error) {
     next(error);
@@ -59,6 +61,7 @@ app.use(errorHandler);
 const server = app.listen(PORT, () => {
   console.log(`Event Service running on http://localhost:${PORT}`);
   console.log(`Swagger documentation: http://localhost:${PORT}/api-docs`);
+  console.log("Blue-Green Deployment Test v2");
 });
 
 const shutdown = async () => {
