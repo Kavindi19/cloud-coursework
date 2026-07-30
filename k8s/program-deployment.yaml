@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: program-service
+  namespace: coursework
+  labels:
+    app: program-service
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: program-service
+
+  template:
+    metadata:
+      labels:
+        app: program-service
+
+    spec:
+      containers:
+        - name: program-service
+
+          image: kavindinable/program-service:latest
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 3002
+
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: program-database-secret
+                  key: DATABASE_URL
+
+            - name: PORT
+              value: "3002"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 30
+            periodSeconds: 20

@@ -4,6 +4,7 @@ import {
   createEvent,
   getAllEvents,
   getEventById,
+  allocateSeats,
   updateEvent,
   deleteEvent
 } from "../controllers/eventController.js";
@@ -17,6 +18,7 @@ import {
 
 const router = express.Router();
 
+// Create a new event
 router.post(
   "/",
   validateCreateEvent,
@@ -24,8 +26,18 @@ router.post(
   createEvent
 );
 
+// Get all events
 router.get("/", getAllEvents);
 
+// Allocate seats for an event
+router.post(
+  "/:id/allocate-seats",
+  validateEventId,
+  handleValidationErrors,
+  allocateSeats
+);
+
+// Get one event by ID
 router.get(
   "/:id",
   validateEventId,
@@ -33,6 +45,7 @@ router.get(
   getEventById
 );
 
+// Update an event
 router.put(
   "/:id",
   validateEventId,
@@ -41,6 +54,7 @@ router.put(
   updateEvent
 );
 
+// Delete an event
 router.delete(
   "/:id",
   validateEventId,

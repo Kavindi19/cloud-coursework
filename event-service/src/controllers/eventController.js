@@ -52,6 +52,27 @@ export const getEventById = async (req, res, next) => {
   }
 };
 
+//new 
+
+export const allocateSeats = async (req, res, next) => {
+  try {
+    const eventId = parseEventId(req.params.id);
+
+    const event = await eventService.allocateSeats(
+      eventId,
+      req.body.ticketCount
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Seats allocated successfully.",
+      data: event
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const updateEvent = async (req, res, next) => {
   try {
     const eventId = parseEventId(req.params.id);

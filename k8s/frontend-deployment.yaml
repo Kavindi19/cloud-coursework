@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: event-frontend
+  namespace: coursework
+  labels:
+    app: event-frontend
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: event-frontend
+
+  template:
+    metadata:
+      labels:
+        app: event-frontend
+
+    spec:
+      containers:
+        - name: event-frontend
+          image: kavindinable/event-frontend:v4
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 80
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+
+            limits:
+              cpu: "250m"
+              memory: "256Mi"

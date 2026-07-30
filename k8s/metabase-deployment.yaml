@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metabase
+  namespace: metabase
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: metabase
+
+  template:
+    metadata:
+      labels:
+        app: metabase
+
+    spec:
+      initContainers:
+        - name: download-clickhouse-driver
+          image: curlimages/curl:8.10.1
+          command:
+            - sh
+            - -c
+            - |
+              echo "Downloading ClickHouse Metabase driver..."
+              curl -L \
+                -o /plugins/clickhouse.metabase-driver.jar \
+                https://github.com/ClickHouse/metabase-clickhouse-driver/releases/download/0.9.0/clickhouse.metabase-driver.jar
+              echo "Driver downloaded successfully."
+              ls -lh /plugins
+          volumeMounts:
+            - name: metabase-plugins
+              mountPath: /plugins
+
+      containers:
+        - name: metabase
+          image: metabase/metabase:latest
+
+          ports:
+            - containerPort: 3000
+
+          env:
+            - name: MB_PLUGINS_DIR
+              value: /plugins
+
+          volumeMounts:
+            - name: metabase-plugins
+              mountPath: /plugins
+
+      volumes:
+        - name: metabase-plugins
+          emptyDir: {}

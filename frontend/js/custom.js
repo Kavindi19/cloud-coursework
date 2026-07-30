@@ -21,6 +21,111 @@ $(window).scroll(function() {
 -------------------------------------------*/
 $(document).ready(function() {
 
+  // ===============================
+// Analytics Variables
+// ===============================
+
+let selectedEvent = null;
+const viewedEvents = new Set();
+
+function getEventDetails(programElement) {
+
+    const programItem = $(programElement);
+
+    const eventName = programItem.find("h3").text().trim();
+
+    const eventId =
+        $("#program .tab-pane .col-md-10").index(programItem) + 1;
+
+    return {
+        eventId: eventId,
+        eventName: eventName,
+        category: "Conference Program"
+    };
+
+}
+
+// EVENT_CLICK
+
+$("#program .tab-pane .col-md-10").css("cursor", "pointer");
+
+$("#program .tab-pane .col-md-10").on("click", function () {
+
+    selectedEvent = getEventDetails(this);
+
+    window.trackAnalyticsEvent({
+        eventType: "EVENT_CLICK",
+        page: "Programs",
+        eventId: selectedEvent.eventId,
+        eventName: selectedEvent.eventName,
+        category: selectedEvent.category
+    });
+
+    console.log("EVENT_CLICK recorded:", selectedEvent);
+
+});
+
+// EVENT_VIEW
+
+function checkVisibleEvents() {
+
+    $("#program .tab-pane.active .col-md-10").each(function () {
+
+        const rect = this.getBoundingClientRect();
+
+        if (
+            rect.top < window.innerHeight &&
+            rect.bottom > 0
+        ) {
+
+            const event = getEventDetails(this);
+
+            if (!viewedEvents.has(event.eventId)) {
+
+                viewedEvents.add(event.eventId);
+
+                window.trackAnalyticsEvent({
+                    eventType: "EVENT_VIEW",
+                    page: "Programs",
+                    eventId: event.eventId,
+                    eventName: event.eventName,
+                    category: event.category
+                });
+
+                console.log("EVENT_VIEW recorded:", event);
+            }
+        }
+
+    });
+
+}
+
+// REGISTRATION_ATTEMPT
+
+$("#registrationForm").on("submit", function (event) {
+
+    event.preventDefault();
+
+    const email = $("#email").val().trim();
+
+    window.trackAnalyticsEvent({
+        eventType: "REGISTRATION_ATTEMPT",
+        page: "Register",
+        eventId: selectedEvent ? selectedEvent.eventId : 0,
+        eventName: selectedEvent ? selectedEvent.eventName : "Unknown Event",
+        category: selectedEvent ? selectedEvent.category : "Registration",
+        userEmail: email
+    });
+
+    console.log("REGISTRATION_ATTEMPT recorded:", {
+        email: email,
+        selectedEvent: selectedEvent
+    });
+
+});
+
+$(window).on("scroll load", checkVisibleEvents);
+
   /* Hide mobile menu after clicking on a link
     -----------------------------------------------*/
     $('.navbar-collapse a').click(function(){

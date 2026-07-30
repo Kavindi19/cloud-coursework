@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: registration-service
+  namespace: coursework
+  labels:
+    app: registration-service
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: registration-service
+
+  template:
+    metadata:
+      labels:
+        app: registration-service
+
+    spec:
+      containers:
+        - name: registration-service
+          image: kavindinable/registration-service:latest
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 3003
+
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: registration-database-secret
+                  key: DATABASE_URL
+
+            - name: PORT
+              value: "3003"
+
+            # NEW: Event Service URL
+            - name: EVENT_SERVICE_URL
+              value: "http://event-service:3001"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 30
+            periodSeconds: 20
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

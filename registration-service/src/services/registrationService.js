@@ -1,5 +1,9 @@
+import axios from "axios";
 import registrationRepository from "../repositories/registrationRepository.js";
 import AppError from "../utils/AppError.js";
+
+const EVENT_SERVICE_URL =
+  process.env.EVENT_SERVICE_URL || "http://event-service:3001";
 
 class RegistrationService {
   async createRegistration(data) {
@@ -8,7 +12,10 @@ class RegistrationService {
     const email = data.email.trim().toLowerCase();
 
     const existingRegistration =
-      await registrationRepository.findByEmailAndEvent(email, eventId);
+      await registrationRepository.findByEmailAndEvent(
+        email,
+        eventId
+      );
 
     if (existingRegistration) {
       throw new AppError(
@@ -17,6 +24,29 @@ class RegistrationService {
       );
     }
 
+    // Call Event Service to reduce the available seats
+    try {
+      await axios.post(
+        `${EVENT_SERVICE_URL}/api/events/${eventId}/allocate-seats`,
+        {
+          ticketCount,
+        }
+      );
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.message ||
+        "Unable to allocate seats for this event.";
+
+      const statusCode =
+        error.response?.status || 500;
+
+      throw new AppError(
+        errorMessage,
+        statusCode
+      );
+    }
+
+    // Create registration only after seats are allocated successfully
     return registrationRepository.create({
       eventId,
       name: data.name.trim(),
@@ -33,10 +63,15 @@ class RegistrationService {
     const registrationId = Number(id);
 
     const registration =
-      await registrationRepository.findById(registrationId);
+      await registrationRepository.findById(
+        registrationId
+      );
 
     if (!registration) {
-      throw new AppError("Registration was not found.", 404);
+      throw new AppError(
+        "Registration was not found.",
+        404
+      );
     }
 
     return registration;
@@ -46,10 +81,15 @@ class RegistrationService {
     const registrationId = Number(id);
 
     const existingRegistration =
-      await registrationRepository.findById(registrationId);
+      await registrationRepository.findById(
+        registrationId
+      );
 
     if (!existingRegistration) {
-      throw new AppError("Registration was not found.", 404);
+      throw new AppError(
+        "Registration was not found.",
+        404
+      );
     }
 
     const updateData = {};
@@ -63,18 +103,22 @@ class RegistrationService {
     }
 
     if (data.email !== undefined) {
-      updateData.email = data.email.trim().toLowerCase();
+      updateData.email =
+        data.email.trim().toLowerCase();
     }
 
     if (data.ticketCount !== undefined) {
-      updateData.ticketCount = Number(data.ticketCount);
+      updateData.ticketCount =
+        Number(data.ticketCount);
     }
 
     const finalEventId =
-      updateData.eventId ?? existingRegistration.eventId;
+      updateData.eventId ??
+      existingRegistration.eventId;
 
     const finalEmail =
-      updateData.email ?? existingRegistration.email;
+      updateData.email ??
+      existingRegistration.email;
 
     const duplicateRegistration =
       await registrationRepository.findByEmailAndEvent(
@@ -102,13 +146,20 @@ class RegistrationService {
     const registrationId = Number(id);
 
     const existingRegistration =
-      await registrationRepository.findById(registrationId);
+      await registrationRepository.findById(
+        registrationId
+      );
 
     if (!existingRegistration) {
-      throw new AppError("Registration was not found.", 404);
+      throw new AppError(
+        "Registration was not found.",
+        404
+      );
     }
 
-    return registrationRepository.delete(registrationId);
+    return registrationRepository.delete(
+      registrationId
+    );
   }
 }
 

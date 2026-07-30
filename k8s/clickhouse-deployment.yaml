@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: clickhouse
+  namespace: analytics
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: clickhouse
+
+  template:
+    metadata:
+      labels:
+        app: clickhouse
+
+    spec:
+      containers:
+        - name: clickhouse
+
+          image: clickhouse/clickhouse-server:24.8
+
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 8123
+            - containerPort: 9000
+
+          env:
+            - name: CLICKHOUSE_DB
+              value: analytics
+
+            - name: CLICKHOUSE_USER
+              value: admin
+
+            - name: CLICKHOUSE_PASSWORD
+              value: CourseworkClickHouse123
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+
+          volumeMounts:
+            - name: clickhouse-storage
+              mountPath: /var/lib/clickhouse
+
+      volumes:
+        - name: clickhouse-storage
+          persistentVolumeClaim:
+            claimName: clickhouse-pvc

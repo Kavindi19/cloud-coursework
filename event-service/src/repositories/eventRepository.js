@@ -31,6 +31,34 @@ export const updateEvent = async (id, eventData) => {
   });
 };
 
+//new
+export const allocateSeats = async (id, ticketCount) => {
+  const result = await prisma.event.updateMany({
+    where: {
+      id,
+      seatsAvailable: {
+        gte: ticketCount
+      }
+    },
+    data: {
+      seatsAvailable: {
+        decrement: ticketCount
+      }
+    }
+  });
+
+  if (result.count === 0) {
+    return null;
+  }
+
+  return prisma.event.findUnique({
+    where: {
+      id
+    }
+  });
+};
+
+//new 
 export const deleteEvent = async (id) => {
   return prisma.event.delete({
     where: {

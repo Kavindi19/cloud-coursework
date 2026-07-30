@@ -2,6 +2,56 @@ import { Prisma } from "@prisma/client";
 import * as eventRepository from "../repositories/eventRepository.js";
 import { AppError } from "../utils/AppError.js";
 
+//new
+
+import {
+  LambdaClient,
+  InvokeCommand
+} from "@aws-sdk/client-lambda";
+
+//new
+
+const lambdaClient = new LambdaClient({
+  region: process.env.AWS_REGION || "us-east-2"
+});
+
+const LOW_SEAT_THRESHOLD =
+  Number(process.env.LOW_SEAT_THRESHOLD || 10);
+
+//new
+
+async function sendLowSeatNotification(event) {
+
+  const functionName =
+    process.env.LOW_SEAT_LAMBDA_FUNCTION;
+
+  if (!functionName) {
+    console.log(
+      "LOW_SEAT_LAMBDA_FUNCTION is not configured."
+    );
+
+    return;
+  }
+
+  const payload = {
+    eventId: event.id,
+    eventName: event.title,
+    remainingSeats: event.seatsAvailable
+  };
+
+  const command = new InvokeCommand({
+    FunctionName: functionName,
+    InvocationType: "Event",
+    Payload: Buffer.from(JSON.stringify(payload))
+  });
+
+  await lambdaClient.send(command);
+
+  console.log(
+    "Low-seat notification sent."
+  );
+}
+
 export async function createEvent(eventData) {
   return eventRepository.createEvent({
     title: eventData.title.trim(),
@@ -26,6 +76,52 @@ export async function getEventById(id) {
   }
 
   return event;
+}
+
+//new
+
+export async function allocateSeats(
+  eventId,
+  ticketCount
+) {
+
+  const id = Number(eventId);
+
+  const tickets = Number(ticketCount);
+
+  const event =
+    await eventRepository.getEventById(id);
+
+  if (!event) {
+    throw new AppError(
+      "Event not found.",
+      404
+    );
+  }
+
+  const updatedEvent =
+    await eventRepository.allocateSeats(
+      id,
+      tickets
+    );
+
+  if (!updatedEvent) {
+    throw new AppError(
+      "Not enough seats available.",
+      400
+    );
+  }
+
+  if (
+    updatedEvent.seatsAvailable <
+    LOW_SEAT_THRESHOLD
+  ) {
+    await sendLowSeatNotification(
+      updatedEvent
+    );
+  }
+
+  return updatedEvent;
 }
 
 export async function updateEvent(id, eventData) {

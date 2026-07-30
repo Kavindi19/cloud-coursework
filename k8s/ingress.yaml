@@ -1,0 +1,65 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: event-ingress
+  namespace: coursework
+
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+
+spec:
+  ingressClassName: alb
+
+  rules:
+    - http:
+        paths:
+
+          # Event Service
+          - path: /api/events
+            pathType: Prefix
+            backend:
+              service:
+                name: event-service
+                port:
+                  number: 3001
+
+          # Program Service
+          - path: /api/programs
+            pathType: Prefix
+            backend:
+              service:
+                name: program-service
+                port:
+                  number: 3002
+
+          # Registration Service
+          - path: /api/registrations
+            pathType: Prefix
+            backend:
+              service:
+                name: registration-service
+                port:
+                  number: 3003
+
+          # Analytics Service
+          - path: /api/analytics
+            pathType: Prefix
+            backend:
+              service:
+                name: analytics-service
+                port:
+                  number: 3004
+
+          # Frontend
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: event-frontend
+                port:
+                  number: 80
