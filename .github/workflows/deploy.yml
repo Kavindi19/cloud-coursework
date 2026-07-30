@@ -115,3 +115,48 @@ jobs:
         run: |
           kubectl get nodes
           kubectl get deployments -n coursework
+
+      - name: Update Frontend
+        run: |
+          kubectl set image deployment/event-frontend \
+          event-frontend=kavindinable/event-frontend:${{ env.IMAGE_TAG }} \
+          -n coursework
+
+      - name: Update Event Service
+        run: |
+          kubectl set image deployment/event-service \
+          event-service=kavindinable/event-service:${{ env.IMAGE_TAG }} \
+          -n coursework
+
+      - name: Update Program Service
+        run: |
+          kubectl set image deployment/program-service \
+          program-service=kavindinable/program-service:${{ env.IMAGE_TAG }} \
+          -n coursework
+
+      - name: Update Registration Service
+        run: |
+          kubectl set image deployment/registration-service \
+          registration-service=kavindinable/registration-service:${{ env.IMAGE_TAG }} \
+          -n coursework
+
+      - name: Update Analytics Service
+        run: |
+          kubectl set image deployment/analytics-service \
+          analytics-service=kavindinable/analytics-service:${{ env.IMAGE_TAG }} \
+          -n coursework
+
+      - name: Wait for Rollout
+        run: |
+          kubectl rollout status deployment/event-frontend -n coursework
+          kubectl rollout status deployment/event-service -n coursework
+          kubectl rollout status deployment/program-service -n coursework
+          kubectl rollout status deployment/registration-service -n coursework
+          kubectl rollout status deployment/analytics-service -n coursework
+
+      - name: Verify Deployment
+        run: |
+          kubectl get pods -n coursework
+          kubectl get deployments -n coursework
+          kubectl get services -n coursework
+          kubectl get ingress -n coursework
