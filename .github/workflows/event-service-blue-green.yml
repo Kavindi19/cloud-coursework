@@ -1,0 +1,128 @@
+name: Event Service Blue-Green Deployment
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "event-service/**"
+      - "k8s/event-blue-deployment.yaml"
+      - "k8s/event-green-deployment.yaml"
+      - "k8s/event-service.yaml"
+      - ".github/workflows/event-service-blue-green.yml"
+
+env:
+  DOCKER_IMAGE: kavindinable/event-service
+  NAMESPACE: coursework
+  SERVICE_NAME: event-service
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Generate image tag
+        id: image
+        run: echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t $DOCKER_IMAGE:${{ steps.image.outputs.tag }} \
+            -t $DOCKER_IMAGE:latest \
+            ./event-service
+
+      - name: Push Docker image
+        run: |
+          docker push $DOCKER_IMAGE:${{ steps.image.outputs.tag }}
+          docker push $DOCKER_IMAGE:latest
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Configure kubectl for EKS
+        run: |
+          aws eks update-kubeconfig \
+            --region us-east-2 \
+            --name ${{ secrets.EKS_CLUSTER_NAME }}
+
+      - name: Detect active environment
+        id: environment
+        shell: bash
+        run: |
+          ACTIVE=$(kubectl get service $SERVICE_NAME \
+            -n $NAMESPACE \
+            -o jsonpath='{.spec.selector.version}')
+
+          echo "Current active environment: $ACTIVE"
+
+          if [ "$ACTIVE" = "blue" ]; then
+            echo "inactive=green" >> "$GITHUB_OUTPUT"
+            echo "active=blue" >> "$GITHUB_OUTPUT"
+          else
+            echo "inactive=blue" >> "$GITHUB_OUTPUT"
+            echo "active=green" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy image to inactive environment
+        shell: bash
+        run: |
+          INACTIVE=${{ steps.environment.outputs.inactive }}
+
+          kubectl set image deployment/event-service-$INACTIVE \
+            event-service=$DOCKER_IMAGE:${{ steps.image.outputs.tag }} \
+            -n $NAMESPACE
+
+      - name: Wait for inactive deployment
+        shell: bash
+        run: |
+          INACTIVE=${{ steps.environment.outputs.inactive }}
+
+          kubectl rollout status deployment/event-service-$INACTIVE \
+            -n $NAMESPACE \
+            --timeout=180s
+
+      - name: Verify inactive pods
+        shell: bash
+        run: |
+          INACTIVE=${{ steps.environment.outputs.inactive }}
+
+          kubectl get pods \
+            -n $NAMESPACE \
+            -l app=event-service,version=$INACTIVE
+
+      - name: Switch production traffic
+        shell: bash
+        run: |
+          INACTIVE=${{ steps.environment.outputs.inactive }}
+
+          kubectl patch service $SERVICE_NAME \
+            -n $NAMESPACE \
+            -p "{\"spec\":{\"selector\":{\"app\":\"event-service\",\"version\":\"$INACTIVE\"}}}"
+
+      - name: Verify traffic switch
+        shell: bash
+        run: |
+          kubectl get service $SERVICE_NAME \
+            -n $NAMESPACE \
+            -o jsonpath='{.spec.selector.version}'
+
+          echo ""
+
+      - name: Show deployment status
+        run: |
+          kubectl get deployments -n $NAMESPACE
+          kubectl get pods -n $NAMESPACE -l app=event-service --show-labels
