@@ -19,6 +19,15 @@ spec:
     - http:
         paths:
 
+          # Event Service Health Check
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: event-service
+                port:
+                  number: 3001
+
           # Event Service
           - path: /api/events
             pathType: Prefix
