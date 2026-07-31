@@ -14,6 +14,12 @@ const app = express();
 
 const PORT = process.env.PORT || 3001;
 
+// Kubernetes blue/green deployment colour.
+// The value comes from event-blue-deployment.yaml or
+// event-green-deployment.yaml.
+const DEPLOYMENT_VERSION =
+  process.env.DEPLOYMENT_VERSION || "local-development";
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -27,7 +33,8 @@ if (process.env.NODE_ENV === "development") {
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "Event Service API is running."
+    message: "Event Service API is running.",
+    deploymentColour: DEPLOYMENT_VERSION
   });
 });
 
@@ -39,8 +46,9 @@ app.get("/health", async (req, res, next) => {
       success: true,
       service: "event-service",
       database: "connected",
-      version: "Blue-Green Deployment Test v2",
-      deployedAt: new Date().toISOString()
+      deploymentColour: DEPLOYMENT_VERSION,
+      version: "Blue-Green Deployment Test v3",
+      checkedAt: new Date().toISOString()
     });
   } catch (error) {
     next(error);
@@ -61,17 +69,24 @@ app.use(errorHandler);
 const server = app.listen(PORT, () => {
   console.log(`Event Service running on http://localhost:${PORT}`);
   console.log(`Swagger documentation: http://localhost:${PORT}/api-docs`);
-  console.log("Blue-Green Deployment Test v2");
+  console.log(`Deployment colour: ${DEPLOYMENT_VERSION}`);
+  console.log("Blue-Green Deployment Test v3");
 });
 
 const shutdown = async () => {
   console.log("Shutting down Event Service...");
 
-  await prisma.$disconnect();
+  try {
+    await prisma.$disconnect();
 
-  server.close(() => {
-    process.exit(0);
-  });
+    server.close(() => {
+      console.log("Event Service stopped successfully.");
+      process.exit(0);
+    });
+  } catch (error) {
+    console.error("Error while shutting down Event Service:", error);
+    process.exit(1);
+  }
 };
 
 process.on("SIGINT", shutdown);

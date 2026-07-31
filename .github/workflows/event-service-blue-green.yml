@@ -82,6 +82,8 @@ jobs:
         run: |
           INACTIVE=${{ steps.environment.outputs.inactive }}
 
+          echo "Deploying image to $INACTIVE"
+
           kubectl set image deployment/event-service-$INACTIVE \
             event-service=$DOCKER_IMAGE:${{ steps.image.outputs.tag }} \
             -n $NAMESPACE
@@ -102,27 +104,58 @@ jobs:
 
           kubectl get pods \
             -n $NAMESPACE \
-            -l app=event-service,version=$INACTIVE
+            -l app=event-service,version=$INACTIVE \
+            --show-labels
 
       - name: Switch production traffic
         shell: bash
         run: |
           INACTIVE=${{ steps.environment.outputs.inactive }}
 
+          echo "Current Service selector:"
+          kubectl get service $SERVICE_NAME -n $NAMESPACE -o yaml
+
+          echo ""
+          echo "Switching production traffic to $INACTIVE..."
+
           kubectl patch service $SERVICE_NAME \
             -n $NAMESPACE \
+            --type=merge \
             -p "{\"spec\":{\"selector\":{\"app\":\"event-service\",\"version\":\"$INACTIVE\"}}}"
+
+          echo ""
+          echo "Service selector after switch:"
+          kubectl get service $SERVICE_NAME -n $NAMESPACE -o yaml
 
       - name: Verify traffic switch
         shell: bash
         run: |
-          kubectl get service $SERVICE_NAME \
-            -n $NAMESPACE \
-            -o jsonpath='{.spec.selector.version}'
+          EXPECTED=${{ steps.environment.outputs.inactive }}
 
-          echo ""
+          ACTUAL=$(kubectl get service $SERVICE_NAME \
+            -n $NAMESPACE \
+            -o jsonpath='{.spec.selector.version}')
+
+          echo "Expected active environment: $EXPECTED"
+          echo "Actual active environment:   $ACTUAL"
+
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "ERROR: Traffic switch failed."
+            exit 1
+          fi
+
+          echo "Traffic successfully switched to $ACTUAL."
 
       - name: Show deployment status
+        shell: bash
         run: |
+          echo "Deployments:"
           kubectl get deployments -n $NAMESPACE
+
+          echo ""
+          echo "Pods:"
           kubectl get pods -n $NAMESPACE -l app=event-service --show-labels
+
+          echo ""
+          echo "Service:"
+          kubectl describe service $SERVICE_NAME -n $NAMESPACE
