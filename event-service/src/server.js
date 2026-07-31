@@ -47,7 +47,7 @@ app.get("/health", async (req, res, next) => {
       service: "event-service",
       database: "connected",
       deploymentColour: DEPLOYMENT_VERSION,
-      version: "Blue-Green Deployment Test v3",
+      version: "Blue-Green Deployment Test v4",
       checkedAt: new Date().toISOString()
     });
   } catch (error) {
